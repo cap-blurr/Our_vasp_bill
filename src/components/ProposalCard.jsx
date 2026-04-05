@@ -25,6 +25,9 @@ export default function ProposalCard({ proposal, user, onSetUser }) {
   // Share state (fallback menu for non-native-share browsers)
   const [showShareMenu, setShowShareMenu] = useState(false);
 
+  // Vote error — shown when Firestore write fails
+  const [voteError, setVoteError] = useState('');
+
   // Inline join form state (shown when unauthenticated user clicks vote)
   const [showJoinForm, setShowJoinForm] = useState(false);
   const [joinName,     setJoinName]     = useState('');
@@ -55,8 +58,7 @@ export default function ProposalCard({ proposal, user, onSetUser }) {
       return;
     }
     if (hasVoted || voting) return;
-    if (proposal.isSample)  return; // sample proposals are read-only
-
+    setVoteError('');
     setVoting(true);
     setJustVoted(true); // optimistic
     try {
@@ -66,7 +68,8 @@ export default function ProposalCard({ proposal, user, onSetUser }) {
       });
     } catch (err) {
       console.error('Vote failed:', err);
-      setJustVoted(false); // revert on error
+      setJustVoted(false);
+      setVoteError('Could not save your vote. Check your connection and try again.');
     } finally {
       setVoting(false);
     }
@@ -397,6 +400,13 @@ export default function ProposalCard({ proposal, user, onSetUser }) {
             )}
           </div>
         </div>
+
+        {/* Vote error */}
+        {voteError && (
+          <div style={{ fontSize: 12, color: COLORS.red, marginTop: 8 }}>
+            {voteError}
+          </div>
+        )}
 
         {/* Inline join form — appears when unauthenticated user clicks vote */}
         {showJoinForm && !user && (
