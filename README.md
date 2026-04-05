@@ -156,5 +156,3 @@ service cloud.firestore {
 The Firebase config in `src/firebase.js` contains a client-side API key. For Firebase web apps this is intentional and standard — the key identifies the project but does not grant any privileged access. Security is enforced entirely through Firestore security rules. If you prefer environment variables, move the config to a `.env` file and reference them via `import.meta.env.VITE_*`.
 
 ---
-
-*Built for Kenya's crypto community.*
