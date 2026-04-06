@@ -146,6 +146,10 @@ export default function ProposeTab({ user, onSetUser, onSwitchToCommunity }) {
   const [joinError, setJoinError] = useState('');
   const [joining,   setJoining]   = useState(false);
 
+  // Post-submission share state
+  const [submittedProposal,    setSubmittedProposal]    = useState(null);
+  const [showSubmittedShare,   setShowSubmittedShare]   = useState(false);
+
 
   // ── Filtered + grouped regulations ────────────────────────────────────
   const activeSF = SEVERITY_FILTERS.find(f => f.id === severityFilter);
@@ -157,6 +161,8 @@ export default function ProposeTab({ user, onSetUser, onSwitchToCommunity }) {
     setSelectedRegulation(reg);
     setSubmitted(false);
     setSubmitError('');
+    setSubmittedProposal(null);
+    setShowSubmittedShare(false);
   };
 
   const handleJoin = async () => {
@@ -178,7 +184,7 @@ export default function ProposeTab({ user, onSetUser, onSwitchToCommunity }) {
   const handleSubmit = async () => {
     if (!user) { setSubmitError('Please join above to submit your proposal.'); return; }
     if (!suggestion.trim()) { setSubmitError('Your proposed alternative is required.'); return; }
-    if (!outcome.trim())    { setSubmitError('Intended outcome is required.'); return; }
+    if (!outcome.trim())    { setSubmitError('Intended outcome/rationale is required.'); return; }
 
     setSubmitting(true);
     setSubmitError('');
@@ -198,6 +204,7 @@ export default function ProposeTab({ user, onSetUser, onSwitchToCommunity }) {
         voters:          {},
         createdAt:       serverTimestamp(),
       });
+      setSubmittedProposal({ regulationTitle: selectedRegulation.title, suggestion: suggestion.trim() });
       setSuggestion('');
       setEvidence('');
       setEvidenceLink('');
@@ -229,6 +236,35 @@ export default function ProposeTab({ user, onSetUser, onSwitchToCommunity }) {
 
   const canSubmit = !!(user && suggestion.trim() && outcome.trim() && !submitting);
 
+  // Share values for just-submitted proposal
+  const submittedSnippet   = submittedProposal
+    ? (submittedProposal.suggestion.length > 160
+        ? submittedProposal.suggestion.slice(0, 160) + '…'
+        : submittedProposal.suggestion)
+    : '';
+  const submittedShareText = submittedProposal
+    ? `I just proposed a change to Kenya's Draft VASP Regulations on OUR VASP BILL! 🇰🇪\n\nRegulation: ${submittedProposal.regulationTitle}\n\n"${submittedSnippet}"\n\nAdd your voice 👇`
+    : '';
+  const submittedXText     = submittedProposal
+    ? `I just proposed a change to Kenya's Draft VASP Regulations — "${submittedProposal.regulationTitle}". Support it on OUR VASP BILL:`
+    : '';
+  const submittedShareUrl  = window.location.href;
+  const submittedWaHref    = `https://wa.me/?text=${encodeURIComponent(submittedShareText + '\n' + submittedShareUrl)}`;
+  const submittedXHref     = `https://twitter.com/intent/tweet?text=${encodeURIComponent(submittedXText)}&url=${encodeURIComponent(submittedShareUrl)}`;
+
+  const handleSubmittedShare = async () => {
+    if (!submittedProposal) return;
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: 'OUR VASP BILL', text: submittedShareText, url: submittedShareUrl });
+      } catch (e) {
+        if (e.name !== 'AbortError') console.error('Share failed:', e);
+      }
+      return;
+    }
+    setShowSubmittedShare(prev => !prev);
+  };
+
   // ── Render ────────────────────────────────────────────────────────────
   return (
     <div style={{ fontFamily: FONT }}>
@@ -241,10 +277,13 @@ export default function ProposeTab({ user, onSetUser, onSwitchToCommunity }) {
           color: COLORS.heading,
           marginBottom: 4,
         }}>
-          Which regulation do you want to improve?
+          Which provision do you want to improve?
         </div>
-        <div style={{ fontSize: 13, color: COLORS.textSecondary, marginBottom: 16 }}>
-          Select a regulation below, then write your proposed alternative.
+        <div style={{ fontSize: 13, color: COLORS.textSecondary, marginBottom: 4 }}>
+          Select a provision below, then write your proposed alternative.
+        </div>
+        <div style={{ fontSize: 11, color: COLORS.textMuted, marginBottom: 16, lineHeight: 1.5 }}>
+          152 provisions total — 147 numbered Regulations + 6 Schedules and key sub-provisions from the Draft VASP Regulations 2026.
         </div>
 
         {/* Severity filter buttons */}
@@ -379,7 +418,7 @@ export default function ProposeTab({ user, onSetUser, onSwitchToCommunity }) {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, marginBottom: 12 }}>
               <div>
                 <div style={{ fontSize: 11, color: COLORS.textMuted, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 4 }}>
-                  Proposing alternative for
+                  Proposing alternative for provision
                 </div>
                 <div style={{ fontSize: 16, fontWeight: 700, color: COLORS.heading, lineHeight: 1.3 }}>
                   {selectedRegulation.title}
@@ -428,30 +467,143 @@ export default function ProposeTab({ user, onSetUser, onSwitchToCommunity }) {
           </div>
 
           {submitted ? (
-            <div style={{ textAlign: 'center', padding: '16px 0 8px' }}>
-              <div style={{ fontSize: 32, marginBottom: 12 }}>✅</div>
-              <div style={{ fontSize: 16, fontWeight: 700, color: COLORS.green, marginBottom: 6 }}>
-                Your proposal is live!
+            <div style={{ padding: '8px 0' }}>
+              {/* Confirmation */}
+              <div style={{ textAlign: 'center', marginBottom: 20 }}>
+                <div style={{ fontSize: 36, marginBottom: 10 }}>✅</div>
+                <div style={{ fontSize: 17, fontWeight: 700, color: COLORS.green, marginBottom: 6 }}>
+                  Your proposal is live!
+                </div>
+                <div style={{ fontSize: 13, color: COLORS.textSecondary, lineHeight: 1.5 }}>
+                  Now get people behind it — share it and build support.
+                </div>
               </div>
-              <div style={{ fontSize: 13, color: COLORS.textSecondary, marginBottom: 24, lineHeight: 1.5 }}>
-                Switch to Community Proposals to see it and vote on others.
+
+              {/* Share CTA — prominent */}
+              <div style={{
+                background: 'linear-gradient(135deg, #ECFDF5 0%, #D1FAE5 100%)',
+                border: '2px solid #6EE7B7',
+                borderRadius: 14,
+                padding: '20px 16px',
+                marginBottom: 14,
+                textAlign: 'center',
+              }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: '#065F46', marginBottom: 4 }}>
+                  📣 Share to get community support
+                </div>
+                <div style={{ fontSize: 12, color: '#059669', marginBottom: 16 }}>
+                  A proposal with supporters carries more weight with Treasury
+                </div>
+
+                <div style={{ position: 'relative', display: 'inline-block' }}>
+                  <button
+                    onClick={handleSubmittedShare}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 9,
+                      padding: '13px 32px',
+                      borderRadius: 28,
+                      border: 'none',
+                      background: 'linear-gradient(135deg, #059669 0%, #10B981 100%)',
+                      color: '#fff',
+                      fontSize: 15,
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      fontFamily: FONT,
+                      boxShadow: '0 4px 18px rgba(5, 150, 105, 0.55)',
+                      letterSpacing: '0.01em',
+                    }}
+                  >
+                    <span style={{ fontSize: 18 }}>↗</span>
+                    <span>Share Your Proposal</span>
+                  </button>
+
+                  {/* Fallback share menu */}
+                  {showSubmittedShare && (
+                    <div style={{
+                      position: 'absolute',
+                      left: '50%',
+                      transform: 'translateX(-50%)',
+                      top: 'calc(100% + 8px)',
+                      background: COLORS.bg,
+                      border: `1px solid ${COLORS.border}`,
+                      borderRadius: 10,
+                      boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
+                      padding: '6px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 4,
+                      minWidth: 170,
+                      zIndex: 20,
+                    }}>
+                      <a
+                        href={submittedWaHref}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={() => setShowSubmittedShare(false)}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 9,
+                          padding: '9px 12px',
+                          borderRadius: 7,
+                          fontSize: 13,
+                          color: COLORS.text,
+                          textDecoration: 'none',
+                          background: 'transparent',
+                        }}
+                        onMouseEnter={e => e.currentTarget.style.background = COLORS.surface}
+                        onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                      >
+                        <span style={{ fontSize: 17 }}>💬</span>
+                        <span>WhatsApp</span>
+                      </a>
+                      <a
+                        href={submittedXHref}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={() => setShowSubmittedShare(false)}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 9,
+                          padding: '9px 12px',
+                          borderRadius: 7,
+                          fontSize: 13,
+                          color: COLORS.text,
+                          textDecoration: 'none',
+                          background: 'transparent',
+                        }}
+                        onMouseEnter={e => e.currentTarget.style.background = COLORS.surface}
+                        onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                      >
+                        <span style={{ fontSize: 15, fontWeight: 700 }}>✕</span>
+                        <span>Post on X</span>
+                      </a>
+                    </div>
+                  )}
+                </div>
               </div>
-              <button
-                onClick={onSwitchToCommunity}
-                style={{
-                  background: COLORS.accent,
-                  color: '#fff',
-                  border: 'none',
-                  borderRadius: 8,
-                  padding: '11px 28px',
-                  fontSize: 14,
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  fontFamily: FONT,
-                }}
-              >
-                View Community Proposals
-              </button>
+
+              {/* Secondary action */}
+              <div style={{ textAlign: 'center' }}>
+                <button
+                  onClick={onSwitchToCommunity}
+                  style={{
+                    background: 'none',
+                    border: `1px solid ${COLORS.border}`,
+                    borderRadius: 8,
+                    color: COLORS.textSecondary,
+                    padding: '10px 24px',
+                    fontSize: 13,
+                    cursor: 'pointer',
+                    fontFamily: FONT,
+                  }}
+                >
+                  View Community Proposals
+                </button>
+              </div>
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
@@ -512,7 +664,7 @@ export default function ProposeTab({ user, onSetUser, onSwitchToCommunity }) {
               {/* Field 4 — Intended outcome (required) */}
               <div>
                 <label style={labelStyle}>
-                  Intended outcome <span style={{ color: COLORS.red }}>*</span>
+                  Intended outcome/rationale <span style={{ color: COLORS.red }}>*</span>
                 </label>
                 <span style={helperStyle}>
                   What will this achieve? Be concrete — e.g. "Reduces startup costs by 90%" or "Enables 500+ new VASP applications"

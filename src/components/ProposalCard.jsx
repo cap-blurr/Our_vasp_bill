@@ -271,7 +271,7 @@ export default function ProposalCard({ proposal, user, onSetUser }) {
           borderRadius: 8,
           padding: '12px 14px',
         }}>
-          {sectionLabel(COLORS.green, '🎯', 'Intended Outcome')}
+          {sectionLabel(COLORS.green, '🎯', 'Intended Outcome/Rationale')}
           <div style={{ fontSize: 13, color: '#065F46', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>
             {proposal.outcome}
           </div>

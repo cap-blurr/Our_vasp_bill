@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3 -c ':*)",
+      "Bash(python:*)",
+      "Bash(pnpm add:*)",
+      "Bash(pnpm build:*)",
+      "Bash(node -e ':*)",
+      "Bash(py --version)",
+      "Bash(py -c \"import pdfminer\")",
+      "Bash(py -m pip install pdfminer.six -q)",
+      "Bash(py:*)",
+      "WebFetch(domain:ai.google.dev)"
+    ]
+  }
+}

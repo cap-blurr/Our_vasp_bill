@@ -4,6 +4,7 @@ import { db } from '../firebase';
 import { REGULATIONS } from '../regulations';
 import { COLORS, FONT } from '../constants';
 import ProposalCard from './ProposalCard';
+import { runTreasuryPipeline, VOTE_THRESHOLD } from '../treasuryPipeline';
 
 export default function ProposalsTab({ user, onSetUser }) {
   const [proposals, setProposals] = useState([]);
@@ -15,8 +16,16 @@ export default function ProposalsTab({ user, onSetUser }) {
     const unsub = onSnapshot(
       q,
       (snapshot) => {
-        setProposals(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+        const docs = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+        setProposals(docs);
         setLoading(false);
+
+        // Auto-trigger treasury pipeline for any proposal that crossed the threshold
+        // and hasn't been claimed yet. runTreasuryPipeline handles the atomic claim
+        // internally, so only one connected client will actually run it per proposal.
+        docs
+          .filter(p => p.upvotes >= VOTE_THRESHOLD && !p.treasuryFormatted)
+          .forEach(p => runTreasuryPipeline(p));
       },
       (err) => {
         console.error('Firestore snapshot error:', err);
