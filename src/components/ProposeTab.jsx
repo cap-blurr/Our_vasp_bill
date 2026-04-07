@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase';
 import { REGULATIONS, PARTS } from '../regulations';
 import { COLORS, FONT, SEVERITY } from '../constants';
+import { DOMAINS, filterByDomain, getDomain } from '../domain-config';
 import {
   hashPhone, normalizePhone, validatePhone,
   getDisplayName, getInitials,
@@ -127,9 +128,30 @@ function RegCard({ reg, isSelected, onSelect }) {
 }
 
 // ─── Main component ───────────────────────────────────────────────────────
-export default function ProposeTab({ user, onSetUser, onSwitchToCommunity }) {
-  const [severityFilter, setSeverityFilter] = useState('red');
+export default function ProposeTab({ user, onSetUser, onSwitchToCommunity, pendingReg, onPendingRegConsumed }) {
+  const [severityFilter,    setSeverityFilter]    = useState('red');
+  const [activeDomain,      setActiveDomain]      = useState('all');
   const [selectedRegulation, setSelectedRegulation] = useState(null);
+  const domainScrollRef = useRef(null);
+
+  // Consume a regulation pre-selected from the Bill Analysis tab
+  useEffect(() => {
+    if (!pendingReg) return;
+    setSeverityFilter(pendingReg.severity === 'green' ? 'green' : pendingReg.severity === 'yellow' ? 'yellow' : 'red');
+    setActiveDomain(getDomain(pendingReg));
+    setSelectedRegulation(pendingReg);
+    setSubmitted(false);
+    setSubmitError('');
+    setSubmittedProposal(null);
+    setShowSubmittedShare(false);
+    onPendingRegConsumed?.();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingReg]);
+
+  useEffect(() => {
+    document.body.style.overflow = selectedRegulation ? 'hidden' : '';
+    return () => { document.body.style.overflow = ''; };
+  }, [selectedRegulation]);
 
   // Form fields
   const [suggestion,   setSuggestion]   = useState('');
@@ -152,9 +174,10 @@ export default function ProposeTab({ user, onSetUser, onSwitchToCommunity }) {
 
 
   // ── Filtered + grouped regulations ────────────────────────────────────
-  const activeSF = SEVERITY_FILTERS.find(f => f.id === severityFilter);
-  const filteredRegs = REGULATIONS.filter(activeSF.match);
-  const groups = buildGroups(filteredRegs);
+  const activeSF     = SEVERITY_FILTERS.find(f => f.id === severityFilter);
+  const filteredRegs = filterByDomain(REGULATIONS.filter(activeSF.match), activeDomain);
+  const groups       = buildGroups(filteredRegs);
+  const activeDomainObj = DOMAINS.find(d => d.id === activeDomain);
 
   // ── Handlers ──────────────────────────────────────────────────────────
   const handleSelectRegulation = (reg) => {
@@ -286,15 +309,83 @@ export default function ProposeTab({ user, onSetUser, onSwitchToCommunity }) {
           152 provisions total — 147 numbered Regulations + 6 Schedules and key sub-provisions from the Draft VASP Regulations 2026.
         </div>
 
+        {/* ── Domain navigation chips ── */}
+        <div
+          ref={domainScrollRef}
+          className="chips-scroll"
+          style={{
+            display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 4,
+            marginBottom: 12, scrollbarWidth: 'none', msOverflowStyle: 'none',
+          }}
+        >
+          {DOMAINS.map(domain => {
+            const active = activeDomain === domain.id;
+            const sevMatch = SEVERITY_FILTERS.find(f => f.id === severityFilter).match;
+            const count = domain.id === 'all'
+              ? REGULATIONS.filter(sevMatch).length
+              : REGULATIONS.filter(sevMatch).filter(r => getDomain(r) === domain.id).length;
+            return (
+              <button
+                key={domain.id}
+                onClick={() => { setActiveDomain(domain.id); setSelectedRegulation(null); }}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 5,
+                  padding: '6px 12px', borderRadius: 16, flexShrink: 0,
+                  border: `1px solid ${active ? COLORS.accentBorder : COLORS.border}`,
+                  background: active ? COLORS.accentBg : COLORS.bg,
+                  color: active ? COLORS.accent : COLORS.textSecondary,
+                  fontSize: 12, fontWeight: active ? 700 : 400,
+                  cursor: 'pointer', fontFamily: FONT, transition: 'all 0.15s',
+                }}
+              >
+                <span style={{ fontSize: 13 }}>{domain.icon}</span>
+                <span>{domain.label}</span>
+                {count > 0 && (
+                  <span style={{
+                    fontSize: 10, fontWeight: 700,
+                    color: active ? COLORS.accent : COLORS.textMuted,
+                    background: active ? 'rgba(99,102,241,0.12)' : COLORS.surface,
+                    padding: '1px 6px', borderRadius: 10,
+                  }}>
+                    {count}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Active domain banner */}
+        {activeDomain !== 'all' && activeDomainObj && (
+          <div style={{
+            background: COLORS.accentBg, border: `1px solid ${COLORS.accentBorder}`,
+            borderRadius: 8, padding: '8px 14px', marginBottom: 12,
+            fontSize: 12, color: COLORS.accent, lineHeight: 1.5,
+          }}>
+            <strong>{activeDomainObj.icon} {activeDomainObj.label}:</strong>{' '}
+            {activeDomainObj.description}
+            <button
+              onClick={() => { setActiveDomain('all'); setSelectedRegulation(null); }}
+              style={{
+                marginLeft: 10, fontSize: 11, color: COLORS.accent,
+                background: 'none', border: 'none', cursor: 'pointer',
+                padding: 0, fontFamily: FONT, textDecoration: 'underline',
+              }}
+            >
+              Clear
+            </button>
+          </div>
+        )}
+
         {/* Severity filter buttons */}
         <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
           {SEVERITY_FILTERS.map(f => {
-            const count = REGULATIONS.filter(f.match).length;
+            const count = filterByDomain(REGULATIONS.filter(f.match), activeDomain).length;
             const active = severityFilter === f.id;
             return (
               <button
                 key={f.id}
-                onClick={() => setSeverityFilter(f.id)}
+                onClick={() => { setSeverityFilter(f.id); setSelectedRegulation(null); }}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -339,13 +430,7 @@ export default function ProposeTab({ user, onSetUser, onSwitchToCommunity }) {
         </div>
 
         {/* Grouped regulation cards */}
-        <div
-          className="reg-scroll"
-          style={{
-            maxHeight: selectedRegulation ? 280 : 'none',
-            overflowY: selectedRegulation ? 'auto' : 'visible',
-          }}
-        >
+        <div className="reg-scroll">
           {groups.length === 0 ? (
             <div style={{ fontSize: 13, color: COLORS.textMuted, textAlign: 'center', padding: '32px 0' }}>
               No regulations in this category.
@@ -396,19 +481,32 @@ export default function ProposeTab({ user, onSetUser, onSwitchToCommunity }) {
         </div>
       </div>
 
-      {/* ── Section 2: Proposal Form ─────────────────────────────────── */}
+      {/* ── Section 2: Proposal Form (full-screen overlay) ──────────── */}
       {selectedRegulation && (
         <div
-
           style={{
-            background: COLORS.bg,
-            border: `1px solid ${COLORS.border}`,
-            borderRadius: 12,
-            padding: 20,
-            marginTop: 8,
-            boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.55)',
+            zIndex: 1000,
+            overflowY: 'auto',
+            WebkitOverflowScrolling: 'touch',
           }}
+          onClick={() => { setSelectedRegulation(null); setSubmitted(false); setSubmitError(''); }}
         >
+          <div
+            style={{
+              margin: '24px auto 40px',
+              width: '100%',
+              maxWidth: 740,
+              padding: '0 16px 32px',
+              background: COLORS.bg,
+              border: `1px solid ${COLORS.border}`,
+              borderRadius: 16,
+              boxShadow: '0 8px 40px rgba(0,0,0,0.18)',
+            }}
+            onClick={e => e.stopPropagation()}
+          >
           {/* Selected regulation header */}
           <div style={{
             paddingBottom: 16,
@@ -832,6 +930,7 @@ export default function ProposeTab({ user, onSetUser, onSwitchToCommunity }) {
 
             </div>
           )}
+          </div>
         </div>
       )}
     </div>

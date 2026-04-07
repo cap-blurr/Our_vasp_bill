@@ -1,19 +1,21 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import Header from './components/Header';
+import BillAnalysisTab from './components/BillAnalysisTab';
 import ProposeTab from './components/ProposeTab';
 import ProposalsTab from './components/ProposalsTab';
 import { COLORS, FONT } from './constants';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState('propose');
-  const [user, setUser] = useState(null);
-
-  useEffect(() => {
-    const name      = localStorage.getItem('vasp_user_name');
-    const phone     = localStorage.getItem('vasp_user_phone');
+  const [activeTab, setActiveTab] = useState('analysis');
+  const [user, setUser] = useState(() => {
+    const name = localStorage.getItem('vasp_user_name');
+    const phone = localStorage.getItem('vasp_user_phone');
     const phoneHash = localStorage.getItem('vasp_user_phone_hash');
-    if (name && phone && phoneHash) setUser({ name, phone, phoneHash });
-  }, []);
+    return name && phone && phoneHash ? { name, phone, phoneHash } : null;
+  });
+
+  // When navigating from Analysis → Propose, carry the regulation to pre-select
+  const [pendingReg, setPendingReg] = useState(null);
 
   const handleSetUser = (userData) => {
     if (userData === null) {
@@ -27,6 +29,23 @@ export default function App() {
     }
     setUser(userData);
   };
+
+  // Called from BillAnalysisTab when user clicks "Propose for this provision"
+  const handleNavigateToPropose = (reg) => {
+    setPendingReg(reg);
+    setActiveTab('propose');
+  };
+
+  // Called from ProposeTab once it has consumed the pending reg
+  const handlePendingRegConsumed = () => {
+    setPendingReg(null);
+  };
+
+  const TABS = [
+    { id: 'analysis',  label: 'Bill Analysis' },
+    { id: 'propose',   label: 'Propose' },
+    { id: 'community', label: 'Community' },
+  ];
 
   return (
     <div style={{ background: '#F1F5F9', minHeight: '100vh', fontFamily: FONT }}>
@@ -43,23 +62,20 @@ export default function App() {
           top: 0,
           zIndex: 10,
         }}>
-          {[
-            { id: 'propose',   label: 'Propose' },
-            { id: 'community', label: 'Community Proposals' },
-          ].map(tab => (
+          {TABS.map(tab => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               style={{
                 flex: 1,
-                padding: '13px 12px',
+                padding: '13px 8px',
                 background: 'none',
                 border: 'none',
                 borderBottom: activeTab === tab.id
                   ? `2px solid ${COLORS.accent}`
                   : '2px solid transparent',
                 color: activeTab === tab.id ? COLORS.accent : COLORS.textSecondary,
-                fontSize: 14,
+                fontSize: 13,
                 fontWeight: activeTab === tab.id ? 600 : 400,
                 cursor: 'pointer',
                 fontFamily: FONT,
@@ -73,13 +89,21 @@ export default function App() {
 
         {/* Tab content */}
         <div style={{ padding: 16 }}>
-          {activeTab === 'propose' ? (
+          {activeTab === 'analysis' && (
+            <BillAnalysisTab
+              onNavigateToPropose={handleNavigateToPropose}
+            />
+          )}
+          {activeTab === 'propose' && (
             <ProposeTab
               user={user}
               onSetUser={handleSetUser}
               onSwitchToCommunity={() => setActiveTab('community')}
+              pendingReg={pendingReg}
+              onPendingRegConsumed={handlePendingRegConsumed}
             />
-          ) : (
+          )}
+          {activeTab === 'community' && (
             <ProposalsTab
               user={user}
               onSetUser={handleSetUser}
