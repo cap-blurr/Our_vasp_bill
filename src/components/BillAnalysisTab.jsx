@@ -1,7 +1,10 @@
 import { useState, useRef, useEffect } from 'react';
+import { collection, query, where, getDocs } from 'firebase/firestore';
+import { db } from '../firebase';
 import { REGULATIONS, PARTS } from '../regulations';
 import { COLORS, FONT, SEVERITY } from '../constants';
 import { getAnalysis } from '../analysis';
+import { downloadAnalysisReport } from '../report';
 import { DOMAINS, BUSINESS_TYPES, getDomain } from '../domain-config';
 import BillOverview from './BillOverview';
 
@@ -258,6 +261,7 @@ export default function BillAnalysisTab({ onNavigateToPropose }) {
   const [activeDomain,       setActiveDomain]       = useState('all');
   const [activeBusinessType, setActiveBusinessType] = useState('all');
   const [selectedReg,        setSelectedReg]        = useState(null);
+  const [reportLoading,      setReportLoading]      = useState(false);
   const cardsRef = useRef(null);
 
   // When a regulation is selected from BillOverview Top Critical list
@@ -289,6 +293,26 @@ export default function BillAnalysisTab({ onNavigateToPropose }) {
     document.body.style.overflow = selectedReg ? 'hidden' : '';
     return () => { document.body.style.overflow = ''; };
   }, [selectedReg]);
+
+  // Fetch community proposals for this regulation, then generate the report
+  const handleDownloadReport = async () => {
+    if (!selectedReg) return;
+    setReportLoading(true);
+    try {
+      const snap = await getDocs(
+        query(collection(db, 'proposals'), where('regulationId', '==', selectedReg.id))
+      );
+      const proposals = snap.docs
+        .map(d => ({ id: d.id, ...d.data() }))
+        .sort((a, b) => (b.upvotes || 0) - (a.upvotes || 0));
+      downloadAnalysisReport(selectedReg, getAnalysis(selectedReg.id), proposals);
+    } catch {
+      // Fall back to report without proposals if Firestore fails
+      downloadAnalysisReport(selectedReg, getAnalysis(selectedReg.id), []);
+    } finally {
+      setReportLoading(false);
+    }
+  };
 
   const activeSF   = SEVERITY_FILTERS.find(f => f.id === severityFilter);
   const activeBT   = BUSINESS_TYPES.find(b => b.id === activeBusinessType);
@@ -503,16 +527,31 @@ export default function BillAnalysisTab({ onNavigateToPropose }) {
                   {selectedReg.ref}
                 </div>
               </div>
-              <button
-                onClick={() => setSelectedReg(null)}
-                style={{
-                  background: COLORS.surface, border: `1px solid ${COLORS.border}`,
-                  borderRadius: 6, color: COLORS.textSecondary, fontSize: 12,
-                  padding: '5px 12px', cursor: 'pointer', flexShrink: 0, fontFamily: FONT,
-                }}
-              >
-                ← Back
-              </button>
+              <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+                <button
+                  onClick={handleDownloadReport}
+                  disabled={reportLoading}
+                  style={{
+                    background: COLORS.accentBg, border: `1px solid ${COLORS.accentBorder}`,
+                    borderRadius: 6, color: COLORS.accent, fontSize: 12,
+                    padding: '5px 12px', cursor: reportLoading ? 'not-allowed' : 'pointer',
+                    fontFamily: FONT, fontWeight: 600,
+                    opacity: reportLoading ? 0.6 : 1,
+                  }}
+                >
+                  {reportLoading ? 'Building…' : '⬇ Report'}
+                </button>
+                <button
+                  onClick={() => setSelectedReg(null)}
+                  style={{
+                    background: COLORS.surface, border: `1px solid ${COLORS.border}`,
+                    borderRadius: 6, color: COLORS.textSecondary, fontSize: 12,
+                    padding: '5px 12px', cursor: 'pointer', fontFamily: FONT,
+                  }}
+                >
+                  ← Back
+                </button>
+              </div>
             </div>
 
             <SectionLabel>What It Says</SectionLabel>

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { collection, query, orderBy, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
 import { REGULATIONS } from '../regulations';
@@ -6,10 +6,11 @@ import { COLORS, FONT } from '../constants';
 import ProposalCard from './ProposalCard';
 import { runTreasuryPipeline, VOTE_THRESHOLD } from '../treasuryPipeline';
 
-export default function ProposalsTab({ user, onSetUser }) {
+export default function ProposalsTab({ user, onSetUser, targetProposalId }) {
   const [proposals, setProposals] = useState([]);
   const [loading,   setLoading]   = useState(true);
   const [filterReg, setFilterReg] = useState('all');
+  const cardRefs = useRef({});
 
   useEffect(() => {
     const q = query(collection(db, 'proposals'), orderBy('upvotes', 'desc'));
@@ -34,6 +35,16 @@ export default function ProposalsTab({ user, onSetUser }) {
     );
     return unsub;
   }, []);
+
+  // Scroll to and highlight the deep-linked proposal once it loads
+  useEffect(() => {
+    if (!targetProposalId || loading || proposals.length === 0) return;
+    const timer = setTimeout(() => {
+      const el = cardRefs.current[targetProposalId];
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [targetProposalId, loading, proposals]);
 
   // Filter chips — built from live proposals only
   const presentRegIds = [...new Set(proposals.map(p => p.regulationId))];
@@ -122,12 +133,14 @@ export default function ProposalsTab({ user, onSetUser }) {
         </div>
       ) : (
         filtered.map(proposal => (
-          <ProposalCard
-            key={proposal.id}
-            proposal={proposal}
-            user={user}
-            onSetUser={onSetUser}
-          />
+          <div key={proposal.id} ref={el => { if (el) cardRefs.current[proposal.id] = el; }}>
+            <ProposalCard
+              proposal={proposal}
+              user={user}
+              onSetUser={onSetUser}
+              isHighlighted={proposal.id === targetProposalId}
+            />
+          </div>
         ))
       )}
     </div>

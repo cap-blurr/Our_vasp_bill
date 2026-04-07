@@ -6,7 +6,16 @@ import ProposalsTab from './components/ProposalsTab';
 import { COLORS, FONT } from './constants';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState('analysis');
+  // If a proposal deep-link is in the URL (?p=ID), open Community tab directly
+  const [targetProposalId] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('p') || null;
+  });
+
+  const [activeTab, setActiveTab] = useState(() =>
+    new URLSearchParams(window.location.search).get('p') ? 'community' : 'analysis'
+  );
+
   const [user, setUser] = useState(() => {
     const name = localStorage.getItem('vasp_user_name');
     const phone = localStorage.getItem('vasp_user_phone');
@@ -107,6 +116,7 @@ export default function App() {
             <ProposalsTab
               user={user}
               onSetUser={handleSetUser}
+              targetProposalId={targetProposalId}
             />
           )}
         </div>

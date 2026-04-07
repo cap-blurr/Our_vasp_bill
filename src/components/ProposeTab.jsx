@@ -212,7 +212,7 @@ export default function ProposeTab({ user, onSetUser, onSwitchToCommunity, pendi
     setSubmitting(true);
     setSubmitError('');
     try {
-      await addDoc(collection(db, 'proposals'), {
+      const docRef = await addDoc(collection(db, 'proposals'), {
         regulationId:    selectedRegulation.id,
         regulationTitle: selectedRegulation.title,
         regulationRef:   selectedRegulation.ref,
@@ -227,7 +227,11 @@ export default function ProposeTab({ user, onSetUser, onSwitchToCommunity, pendi
         voters:          {},
         createdAt:       serverTimestamp(),
       });
-      setSubmittedProposal({ regulationTitle: selectedRegulation.title, suggestion: suggestion.trim() });
+      setSubmittedProposal({
+        regulationTitle: selectedRegulation.title,
+        suggestion:      suggestion.trim(),
+        proposalId:      docRef.id,
+      });
       setSuggestion('');
       setEvidence('');
       setEvidenceLink('');
@@ -271,7 +275,10 @@ export default function ProposeTab({ user, onSetUser, onSwitchToCommunity, pendi
   const submittedXText     = submittedProposal
     ? `I just proposed a change to Kenya's Draft VASP Regulations — "${submittedProposal.regulationTitle}". Support it on OUR VASP BILL:`
     : '';
-  const submittedShareUrl  = window.location.href;
+  // Deep link — takes recipients directly to this specific proposal
+  const submittedShareUrl  = submittedProposal?.proposalId
+    ? `${window.location.origin}${window.location.pathname}?p=${submittedProposal.proposalId}`
+    : window.location.href;
   const submittedWaHref    = `https://wa.me/?text=${encodeURIComponent(submittedShareText + '\n' + submittedShareUrl)}`;
   const submittedXHref     = `https://twitter.com/intent/tweet?text=${encodeURIComponent(submittedXText)}&url=${encodeURIComponent(submittedShareUrl)}`;
 

@@ -17,7 +17,7 @@ function timeAgo(timestamp) {
   }
 }
 
-export default function ProposalCard({ proposal, user, onSetUser }) {
+export default function ProposalCard({ proposal, user, onSetUser, isHighlighted }) {
   // Voting state
   const [voting,        setVoting]        = useState(false);
   const [justVoted,     setJustVoted]     = useState(false);
@@ -113,7 +113,8 @@ export default function ProposalCard({ proposal, user, onSetUser }) {
     : `Support ${proposal.authorName}'s proposal to improve Kenya's Draft VASP Regulations on OUR VASP BILL! 🇰🇪`;
 
   const shareText = `${shareIntro}\n\nRegulation: ${proposal.regulationTitle}\n\n"${snippet}"\n\nAdd your voice 👇`;
-  const shareUrl  = window.location.href;
+  // Deep link — takes recipients directly to this specific proposal
+  const shareUrl  = `${window.location.origin}${window.location.pathname}?p=${proposal.id}`;
 
   const handleShare = async () => {
     if (navigator.share) {
@@ -158,12 +159,15 @@ export default function ProposalCard({ proposal, user, onSetUser }) {
   return (
     <div style={{
       background: COLORS.bg,
-      border: `1px solid ${COLORS.border}`,
+      border: `1px solid ${isHighlighted ? COLORS.accent : COLORS.border}`,
       borderRadius: 12,
       padding: 18,
       marginBottom: 12,
       fontFamily: FONT,
-      boxShadow: '0 1px 4px rgba(0,0,0,0.05)',
+      boxShadow: isHighlighted
+        ? `0 0 0 3px rgba(99,102,241,0.15), 0 2px 8px rgba(0,0,0,0.08)`
+        : '0 1px 4px rgba(0,0,0,0.05)',
+      transition: 'box-shadow 0.4s, border-color 0.4s',
     }}>
 
       {/* ── Top row: avatar + author + time | regulation badge ── */}

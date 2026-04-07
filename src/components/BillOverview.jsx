@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { REGULATIONS } from '../regulations';
 import { COLORS, FONT, SEVERITY } from '../constants';
 import { DOMAINS, BUSINESS_TYPES, TOP_CRITICAL, getDomainStats, getDomain } from '../domain-config';
+import { downloadBillOverviewReport } from '../report';
 
 // ─── Stacked bar primitive ────────────────────────────────────────────────
 function StackedBar({ red, yellow, green, total, height = 8, dimmed = false }) {
@@ -285,7 +286,7 @@ export default function BillOverview({ activeDomain, onSelectDomain, onSelectReg
         }}
         onClick={() => setCollapsed(p => !p)}
       >
-        <div>
+        <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: COLORS.heading }}>
             Bill Health Overview
           </div>
@@ -295,15 +296,32 @@ export default function BillOverview({ activeDomain, onSelectDomain, onSelectReg
             </div>
           )}
         </div>
-        <span style={{
-          fontSize: 11, fontWeight: 600,
-          color: COLORS.textMuted,
-          background: COLORS.border,
-          borderRadius: 12,
-          padding: '3px 10px',
-        }}>
-          {collapsed ? 'Show' : 'Hide'}
-        </span>
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0 }}>
+          <button
+            onClick={e => { e.stopPropagation(); downloadBillOverviewReport(); }}
+            style={{
+              fontSize: 11, fontWeight: 600,
+              color: COLORS.accent,
+              background: COLORS.accentBg,
+              border: `1px solid ${COLORS.accentBorder}`,
+              borderRadius: 12,
+              padding: '3px 10px',
+              cursor: 'pointer',
+              fontFamily: FONT,
+            }}
+          >
+            ⬇ Report
+          </button>
+          <span style={{
+            fontSize: 11, fontWeight: 600,
+            color: COLORS.textMuted,
+            background: COLORS.border,
+            borderRadius: 12,
+            padding: '3px 10px',
+          }}>
+            {collapsed ? 'Show' : 'Hide'}
+          </span>
+        </div>
       </div>
 
       {!collapsed && (
