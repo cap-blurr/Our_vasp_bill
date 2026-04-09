@@ -176,7 +176,7 @@ export default function App() {
                 color: '#FDE68A',
                 marginTop: 3,
               }}>
-                Karen, Nairobi
+                Karen, Nairobi &nbsp;·&nbsp; 10th April, 9:00 AM – 1:00 PM
               </div>
             </div>
             <div style={{
