@@ -3,6 +3,7 @@ import { doc, updateDoc, increment } from 'firebase/firestore';
 import { db } from '../firebase';
 import { COLORS, FONT } from '../constants';
 import { hashPhone, normalizePhone, validatePhone } from '../utils';
+import { generateAndDownloadSubmission } from '../treasuryPipeline';
 
 function timeAgo(timestamp) {
   if (!timestamp || typeof timestamp.toDate !== 'function') return '';
@@ -27,6 +28,11 @@ export default function ProposalCard({ proposal, user, onSetUser, isHighlighted 
 
   // Vote error — shown when Firestore write fails
   const [voteError, setVoteError] = useState('');
+
+  // Download state
+  const [downloading, setDownloading] = useState(false);
+  const [downloadDone, setDownloadDone] = useState(false);
+  const [dlError, setDlError] = useState('');
 
   // Inline join form state (shown when unauthenticated user clicks vote)
   const [showJoinForm, setShowJoinForm] = useState(false);
@@ -134,6 +140,29 @@ export default function ProposalCard({ proposal, user, onSetUser, isHighlighted 
 
   const waHref = `https://wa.me/?text=${encodeURIComponent(shareText + '\n' + shareUrl)}`;
   const xHref  = `https://twitter.com/intent/tweet?text=${encodeURIComponent(xTweetText)}&url=${encodeURIComponent(shareUrl)}`;
+
+  const handleDownload = async () => {
+    if (downloading) return;
+    setDownloading(true);
+    setDlError('');
+    setDownloadDone(false);
+    try {
+      await generateAndDownloadSubmission({
+        regulationId:    proposal.regulationId,
+        regulationTitle: proposal.regulationTitle,
+        regulationRef:   proposal.regulationRef,
+        suggestion:      proposal.suggestion,
+        evidence:        proposal.evidence,
+        outcome:         proposal.outcome,
+      });
+      setDownloadDone(true);
+    } catch (err) {
+      console.error('Download failed:', err);
+      setDlError('Failed to generate — try again.');
+    } finally {
+      setDownloading(false);
+    }
+  };
 
   // ── Styles ────────────────────────────────────────────────────────────
   const sectionLabel = (color, emoji, text) => (
@@ -314,6 +343,34 @@ export default function ProposalCard({ proposal, user, onSetUser, isHighlighted 
             {supportLabel}
           </span>
 
+          {/* Download button */}
+          <button
+            onClick={handleDownload}
+            disabled={downloading}
+            title={downloadDone ? 'Downloaded!' : 'Download formatted submission (.docx)'}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              padding: '8px 14px',
+              borderRadius: 20,
+              border: `1px solid ${downloadDone ? COLORS.green : COLORS.border}`,
+              background: downloadDone ? COLORS.greenBg : COLORS.bg,
+              color: downloadDone ? COLORS.green : COLORS.textSecondary,
+              fontSize: 12,
+              fontWeight: downloadDone ? 600 : 400,
+              cursor: downloading ? 'not-allowed' : 'pointer',
+              opacity: downloading ? 0.6 : 1,
+              fontFamily: FONT,
+              transition: 'all 0.15s',
+            }}
+          >
+            <span style={{ fontSize: 13 }}>
+              {downloadDone ? '✓' : downloading ? '⏳' : '↓'}
+            </span>
+            <span>{downloading ? 'Formatting...' : downloadDone ? 'Done' : '.docx'}</span>
+          </button>
+
           {/* Share button — pushed to right */}
           <div style={{ marginLeft: 'auto', position: 'relative' }}>
             <button
@@ -404,6 +461,13 @@ export default function ProposalCard({ proposal, user, onSetUser, isHighlighted 
             )}
           </div>
         </div>
+
+        {/* Download error */}
+        {dlError && (
+          <div style={{ fontSize: 12, color: COLORS.red, marginTop: 8 }}>
+            {dlError}
+          </div>
+        )}
 
         {/* Vote error */}
         {voteError && (

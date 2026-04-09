@@ -93,7 +93,7 @@ Produce three outputs:
             required: ['relevantProvisions', 'proposedRevision', 'rationale'],
           },
           temperature:     0.4,
-          maxOutputTokens: 2048,
+          maxOutputTokens: 65536,
         },
       }),
     }
@@ -208,7 +208,36 @@ function triggerDownload(blob, filename) {
   URL.revokeObjectURL(url);
 }
 
-// ── Main export ───────────────────────────────────────────────────────────────
+// ── Individual submission download (no vote threshold, no Firestore claim) ────
+export async function generateAndDownloadSubmission(proposal) {
+  // 1. Load bill text
+  let verbatimText = '';
+  try {
+    const billData = await loadBillData();
+    verbatimText = billData[proposal.regulationId]?.verbatim || '';
+  } catch (err) {
+    console.error('[Submission] Failed to load bill text:', err);
+  }
+
+  const cleanRef = (proposal.regulationRef || proposal.regulationTitle)
+    .replace(/\s*\(pp?\.[\d,\s–\-]+\)/g, '')
+    .trim();
+
+  // 2. Call Gemini to format
+  const formatted = await callGemini(proposal, verbatimText);
+
+  // 3. Build and download DOCX
+  const docxDoc = buildDocx(cleanRef, formatted);
+  const blob = await Packer.toBlob(docxDoc);
+
+  const slug = proposal.regulationTitle
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .slice(0, 50);
+  triggerDownload(blob, `VASP-Submission-${slug}.docx`);
+}
+
+// ── Main export (vote-threshold based, atomic claim) ─────────────────────────
 export async function runTreasuryPipeline(proposal) {
   const proposalRef = doc(db, 'proposals', proposal.id);
 

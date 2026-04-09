@@ -11,7 +11,8 @@
       "Bash(py -m pip install pdfminer.six -q)",
       "Bash(py:*)",
       "WebFetch(domain:ai.google.dev)",
-      "Bash(timeout 8 pnpm dev)"
+      "Bash(timeout 8 pnpm dev)",
+      "Bash(npx vite:*)"
     ]
   }
 }

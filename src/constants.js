@@ -24,6 +24,10 @@ export const COLORS = {
 
 export const FONT = "'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif";
 
+// Treasury submission emails — where users send their formatted DOCX submissions
+export const TREASURY_EMAIL = 'pstnt@treasury.go.ke';
+export const TREASURY_CC    = 'vasps@treasury.go.ke';
+
 // Severity config — used on cards and filter badges
 export const SEVERITY = {
   red: {

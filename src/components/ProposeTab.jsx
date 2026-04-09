@@ -2,8 +2,10 @@ import { useState, useEffect, useRef } from 'react';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase';
 import { REGULATIONS, PARTS } from '../regulations';
-import { COLORS, FONT, SEVERITY } from '../constants';
+import { COLORS, FONT, SEVERITY, TREASURY_EMAIL, TREASURY_CC } from '../constants';
 import { DOMAINS, filterByDomain, getDomain } from '../domain-config';
+import { generateAndDownloadSubmission } from '../treasuryPipeline';
+import CopyableEmail from './CopyableEmail';
 import {
   hashPhone, normalizePhone, validatePhone,
   getDisplayName, getInitials,
@@ -172,6 +174,11 @@ export default function ProposeTab({ user, onSetUser, onSwitchToCommunity, pendi
   const [submittedProposal,    setSubmittedProposal]    = useState(null);
   const [showSubmittedShare,   setShowSubmittedShare]   = useState(false);
 
+  // Download state
+  const [downloading, setDownloading] = useState(false);
+  const [downloadError, setDownloadError] = useState('');
+  const [downloaded, setDownloaded] = useState(false);
+
 
   // ── Filtered + grouped regulations ────────────────────────────────────
   const activeSF     = SEVERITY_FILTERS.find(f => f.id === severityFilter);
@@ -228,10 +235,16 @@ export default function ProposeTab({ user, onSetUser, onSwitchToCommunity, pendi
         createdAt:       serverTimestamp(),
       });
       setSubmittedProposal({
+        regulationId:    selectedRegulation.id,
         regulationTitle: selectedRegulation.title,
+        regulationRef:   selectedRegulation.ref,
         suggestion:      suggestion.trim(),
+        evidence:        evidence.trim(),
+        outcome:         outcome.trim(),
         proposalId:      docRef.id,
       });
+      setDownloaded(false);
+      setDownloadError('');
       setSuggestion('');
       setEvidence('');
       setEvidenceLink('');
@@ -293,6 +306,25 @@ export default function ProposeTab({ user, onSetUser, onSwitchToCommunity, pendi
       return;
     }
     setShowSubmittedShare(prev => !prev);
+  };
+
+  const handleDownloadSubmission = async () => {
+    if (!submittedProposal || downloading) return;
+    setDownloading(true);
+    setDownloadError('');
+    try {
+      await generateAndDownloadSubmission(submittedProposal);
+      setDownloaded(true);
+    } catch (err) {
+      console.error('Download failed:', err);
+      setDownloadError(
+        err.message?.includes('VITE_GEMINI_API_KEY')
+          ? 'Gemini API key not configured. Please add VITE_GEMINI_API_KEY to your .env file.'
+          : 'Failed to generate submission. Please try again.'
+      );
+    } finally {
+      setDownloading(false);
+    }
   };
 
   // ── Render ────────────────────────────────────────────────────────────
@@ -688,6 +720,102 @@ export default function ProposeTab({ user, onSetUser, onSwitchToCommunity, pendi
                       </a>
                     </div>
                   )}
+                </div>
+              </div>
+
+              {/* Download formatted submission */}
+              <div style={{
+                background: COLORS.accentBg,
+                border: `1px solid ${COLORS.accentBorder}`,
+                borderRadius: 14,
+                padding: '20px 16px',
+                marginBottom: 14,
+                textAlign: 'center',
+              }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: COLORS.accent, marginBottom: 4 }}>
+                  📄 Download your formatted submission
+                </div>
+                <div style={{ fontSize: 12, color: COLORS.textSecondary, marginBottom: 16, lineHeight: 1.5 }}>
+                  Get a professionally formatted DOCX ready to email to Treasury
+                </div>
+
+                <button
+                  onClick={handleDownloadSubmission}
+                  disabled={downloading}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 9,
+                    padding: '13px 32px',
+                    borderRadius: 28,
+                    border: 'none',
+                    background: downloading
+                      ? COLORS.border
+                      : 'linear-gradient(135deg, #6366F1 0%, #818CF8 100%)',
+                    color: '#fff',
+                    fontSize: 15,
+                    fontWeight: 700,
+                    cursor: downloading ? 'not-allowed' : 'pointer',
+                    fontFamily: FONT,
+                    boxShadow: downloading ? 'none' : '0 4px 18px rgba(99, 102, 241, 0.45)',
+                  }}
+                >
+                  <span style={{ fontSize: 18 }}>
+                    {downloaded ? '✓' : downloading ? '⏳' : '↓'}
+                  </span>
+                  <span>
+                    {downloaded
+                      ? 'Downloaded!'
+                      : downloading
+                        ? 'Formatting with AI...'
+                        : 'Download Submission (.docx)'}
+                  </span>
+                </button>
+
+                {downloadError && (
+                  <div style={{
+                    fontSize: 12,
+                    color: COLORS.red,
+                    marginTop: 10,
+                    background: COLORS.redBg,
+                    border: '1px solid #FECACA',
+                    borderRadius: 6,
+                    padding: '8px 12px',
+                  }}>
+                    {downloadError}
+                  </div>
+                )}
+              </div>
+
+              {/* Treasury email — where to send submissions */}
+              <div style={{
+                background: COLORS.yellowBg,
+                border: `1px solid #FDE68A`,
+                borderRadius: 14,
+                padding: '16px',
+                marginBottom: 14,
+              }}>
+                <div style={{
+                  fontSize: 13,
+                  fontWeight: 700,
+                  color: '#92400E',
+                  marginBottom: 6,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                }}>
+                  <span>📧</span>
+                  <span>Submit to Treasury</span>
+                </div>
+                <div style={{ fontSize: 12, color: '#78350F', lineHeight: 1.6, marginBottom: 12 }}>
+                  Download your formatted submission above, then email it to:
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <CopyableEmail email={TREASURY_EMAIL} label="To" style={{ fontSize: 14, padding: '10px 16px' }} />
+                  <CopyableEmail email={TREASURY_CC} label="CC" style={{ fontSize: 14, padding: '10px 16px' }} />
+                </div>
+                <div style={{ fontSize: 11, color: '#A16207', marginTop: 10, lineHeight: 1.5 }}>
+                  Attach the .docx file and send before the public participation deadline.
                 </div>
               </div>
 

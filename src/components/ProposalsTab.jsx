@@ -2,8 +2,9 @@ import { useState, useEffect, useRef } from 'react';
 import { collection, query, orderBy, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
 import { REGULATIONS } from '../regulations';
-import { COLORS, FONT } from '../constants';
+import { COLORS, FONT, TREASURY_EMAIL, TREASURY_CC } from '../constants';
 import ProposalCard from './ProposalCard';
+import CopyableEmail from './CopyableEmail';
 import { runTreasuryPipeline, VOTE_THRESHOLD } from '../treasuryPipeline';
 
 export default function ProposalsTab({ user, onSetUser, targetProposalId }) {
@@ -72,6 +73,41 @@ export default function ProposalsTab({ user, onSetUser, targetProposalId }) {
 
   return (
     <div style={{ fontFamily: FONT }}>
+
+      {/* Treasury submission email banner */}
+      <div style={{
+        background: COLORS.yellowBg,
+        border: `1px solid #FDE68A`,
+        borderRadius: 12,
+        padding: '14px 16px',
+        marginBottom: 16,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 12,
+        flexWrap: 'wrap',
+      }}>
+        <div style={{ flex: '1 1 200px', minWidth: 0 }}>
+          <div style={{
+            fontSize: 13,
+            fontWeight: 700,
+            color: '#92400E',
+            marginBottom: 3,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+          }}>
+            <span>📧</span>
+            <span>Submit your proposals to Treasury</span>
+          </div>
+          <div style={{ fontSize: 12, color: '#78350F', lineHeight: 1.5 }}>
+            Download any proposal below as a formatted .docx, then email it to:
+          </div>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0 }}>
+          <CopyableEmail email={TREASURY_EMAIL} label="To" />
+          <CopyableEmail email={TREASURY_CC} label="CC" />
+        </div>
+      </div>
 
       {/* Filter chips */}
       {proposals.length > 0 && (
