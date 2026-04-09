@@ -59,3 +59,6 @@ $RECYCLE.BIN/
 *.local
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+
+VASP-Counter-Proposal-Platform-Spec.md
+vasp-bill-full.txt
